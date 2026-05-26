@@ -1,0 +1,43 @@
+# Data files (excluded by default, demo inputs are explicitly allowed below)
+*.tsv
+*.csv
+*.pkl
+
+# Pipeline outputs
+results/
+demo/MAGNet_example/MAGNet_results/
+
+# Allow demo input datasets (except large expression matrices)
+!demo/**/*.tsv
+!demo/**/*.csv
+
+# Large expression matrix and subtype files - host externally
+demo/BRCA_example/BRCA_tpm_log2.tsv
+demo/MAGNet_example/MAGNet_tpm_log2.tsv
+demo/BRCA_example/TCGA-BRCA_Xena_Subtypes.tsv
+demo/MAGNet_example/MAGNet_Subtypes.csv
+
+# External dependencies (cloned separately by setup_dependencies.py)
+dependencies/
+
+# Personal config files (contain absolute paths)
+demo/trial*.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,157 @@
+# =============================================================================
+# graphlet_stratify —  configuration template
+# =============================================================================
+
+# Copy this file, rename it, fill in your paths and run:
+#     python run_pipeline.py --config file_name.yaml.yaml
+#
+# To run only specific stages:
+#     python run_pipeline.py --config file_name.yaml --stages filter network
+#     python run_pipeline.py --config file_name.yaml --stages orbits
+#     python run_pipeline.py --config file_name.yaml --stages cluster validate
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INPUT  —  your expression matrix
+# ─────────────────────────────────────────────────────────────────────────────
+input:
+  # Path to your transcript × sample expression matrix.
+  #
+  # Format:
+  #   - Rows    = transcripts  (first column = Ensembl transcript IDs, e.g. ENST00000366570)
+  #   - Columns = patient samples  (column headers = sample IDs)
+  #   - Values  = log2(TPM+0.001) expression values
+  #   - Accepted file types: TSV or CSV
+  #
+  # Example (TSV):
+  #   transcript_id     TCGA-A2-A04P  TCGA-A8-A06R  TCGA-A8-A08H
+  #   ENST00000000233   12.5          8.3            0.0
+  #   ENST00000000412   0.0           134.2          45.9
+  #
+  expression_matrix: C:/Users/HP/Documents/graphlet_stratify/BRCA_transcript_tpm_log2.tsv
+
+  # Minimum log2(TPM+0.001) for a transcript to be considered expressed.
+  # Default 0: corresponds to TPM > ~1 (standard cutoff for expressed genes).
+  tpm_threshold: 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIGGER  —  required for stages 1 (filter) and 2 (network)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# digger.dir should point to the ROOT of the cloned DIGGER repo.
+# The data files are located at:
+#   <digger.dir>/container/domain/data/<species>/PPI.pkl
+#   <digger.dir>/container/domain/data/<species>/DDI.pkl
+#   <digger.dir>/container/domain/data/<species>/all_Proteins.csv
+#
+# If you are analysing a non-human species, change digger.species to match
+# the sub-folder name inside  data/ .
+# ─────────────────────────────────────────────────────────────────────────────
+digger:
+  dir: C:\Users\HP\Documents\graphlet_stratify\dependencies\DIGGER          # root of DIGGER clone
+  species: "Homo sapiens[human]"  # must match folder name inside data/
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 1  —  Isoform switching filter
+# ─────────────────────────────────────────────────────────────────────────────
+# Identifies genes where the dominant isoform varies across samples.
+# Genes below switch_rate are excluded from downstream analysis.
+# Inspect switching_report.tsv to tune.
+filter:
+  report_path: results/switching_report.tsv
+  whitelist_path: results/whitelist.txt
+
+  # Minimum fraction of samples where the non-predominant isoform dominates.
+  # Genes with switching_rate more than this value are retained.
+  # Higher = stricter (fewer genes kept).
+  switch_rate: 0.20
+
+  # A gene must appear (with log2(TPM+1) >= tpm_threshold) in at least this many
+  # samples to be considered at all.
+  min_samples: 50
+
+  # Path for the filtered expression matrix (whitelisted transcript rows only).
+  # Stage 2 (network) will use this matrix automatically.
+  filtered_matrix_path: results/expression_filtered.tsv
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 2  —  Network building
+# ─────────────────────────────────────────────────────────────────────────────
+# Builds one isoform-aware DDI-filtered PPI network per sample.
+# Input is the same expression files as stage 1.
+# Output: one TSV network file per sample.
+network:
+  # Stage 2 automatically uses filter/filtered_matrix_path when set.
+  output_dir: results/networks
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 3  —  Graphlet orbit counting (Jesse)
+# ─────────────────────────────────────────────────────────────────────────────
+# Runs the Jesse tool on every network file produced in stage 2.
+#
+# jesse.jar should be the FULL PATH to the compiled JAR.
+jesse:
+  jar: C:\Users\HP\Documents\graphlet_stratify\dependencies\jesse\target\jesse-1.1.0.jar
+
+  # Graphlet size: 5 (73 orbits) or 4 (15 orbits).
+  graphlet_size: 5
+
+orbits:
+  output_dir: results/orbits
+
+  network_file_pattern: "*.txt" # (Default matches the TSV files written by stage 2.)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 4  —  Hierarchical clustering
+# ─────────────────────────────────────────────────────────────────────────────
+clustering:
+  # mode:
+  #   "gene"   — one clustering per gene
+  #   "orbit"  — one clustering per orbit type
+  #   "both"   — run both (takes longer, produces gene and orbit output)
+  mode: both
+
+  # Number of clusters to cut the Ward dendrogram into.
+  # Tune this for your dataset (For 5 PAM50 subtypes this is typically 5).
+  n_clusters: 5
+
+  # A gene must appear in at least this fraction of samples to be clustered.
+  min_presence: 0.90
+
+  # Samples whose orbit-vector L2-norm is more than outlier_z standard
+  # deviations from the mean are removed before clustering.
+  outlier_z: 5.0
+
+  # Save side-by-side PCA plots (subtype vs cluster) per gene / orbit type.
+  # Requires subtype_file for colouring.
+  save_pca: true
+
+  # Number of characters to keep from each sample ID.
+  # Use this when sample IDs need to be shortened to match between files.
+  # Example: TCGA IDs like TCGA-A2-A04P-01A-11R → set to 15 → TCGA-A2-A04P-01A
+  # Leave as null to keep full sample IDs.
+  id_length: 15
+
+  gene_output_dir:  results/clusters/per_gene
+  orbit_output_dir: results/clusters/per_orbit
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 5  —  Validation
+# ─────────────────────────────────────────────────────────────────────────────
+validation:
+  # Two-column label file (TSV or CSV, with header).
+  # Column 1: sample ID   Column 2: subtype label
+  # Leave blank to skip validation entirely.
+  subtype_file: C:/Users/HP/Documents/graphlet_stratify/TCGA-BRCA_Xena_Subtypes.tsv
+
+  # Save the per-gene or per-orbit Jaccard matrix as individual CSV files.
+  save_jaccard: false
+
+  gene_output_dir:  results/validation/per_gene
+  orbit_output_dir: results/validation/per_orbit
