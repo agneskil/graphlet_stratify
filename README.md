@@ -34,7 +34,7 @@ python --version && git --version && java -version && mvn --version
 ### Step 2 — Clone this repository and install Python dependencies
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/graphlet_stratify
+git clone https://github.com/agneskil/graphlet_stratify
 cd graphlet_stratify
 pip install -r requirements.txt
 ```
